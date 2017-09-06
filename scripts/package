@@ -1,0 +1,24 @@
+#!/bin/bash
+
+ARCH=${ARCH:-"amd64"}
+SUFFIX=""
+[ "${ARCH}" != "amd64" ] && SUFFIX="_${ARCH}"
+
+source $(dirname $0)/version
+
+cd $(dirname $0)/../package
+
+TAG=${TAG:-${VERSION}${SUFFIX}}
+REPO=${REPO:-rancher}
+
+if $(echo ${TAG} | grep -q dirty); then
+    TAG=dev
+fi
+
+cp ../bin/rancher-net .
+cp ../strongswan/* strongswan.tar.gz
+
+IMAGE=${REPO}/net:${TAG}
+docker build -t ${IMAGE} .
+echo ${IMAGE} > ../dist/images
+echo Built ${IMAGE}
