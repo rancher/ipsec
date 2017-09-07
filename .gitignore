@@ -1,0 +1,12 @@
+bin
+dist
+strongswan
+.trash-cache
+.dapper
+*strongswan.tar.gz
+ipsec
+!ipsec/
+trash
+build
+rootfs
+.DS_Store

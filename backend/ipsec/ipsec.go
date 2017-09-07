@@ -16,7 +16,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/bronze1man/goStrongswanVici"
-	"github.com/rancher/rancher-net/store"
+	"github.com/rancher/ipsec/store"
 	"github.com/vishvananda/netlink"
 )
 

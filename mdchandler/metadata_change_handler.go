@@ -5,7 +5,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/go-rancher-metadata/metadata"
-	"github.com/rancher/rancher-net/backend"
+	"github.com/rancher/ipsec/backend"
 )
 
 const (

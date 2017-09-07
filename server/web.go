@@ -6,7 +6,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 
-	"github.com/rancher/rancher-net/backend"
+	"github.com/rancher/ipsec/backend"
 )
 
 // Server structure is used to the store backend information

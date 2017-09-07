@@ -1,24 +1,27 @@
 #!/bin/bash
 
+set -e
+
 ARCH=${ARCH:-"amd64"}
 SUFFIX=""
 [ "${ARCH}" != "amd64" ] && SUFFIX="_${ARCH}"
 
 source $(dirname $0)/version
 
-cd $(dirname $0)/../package
+cd $(dirname $0)/..
 
-TAG=${TAG:-${VERSION}${SUFFIX}}
-REPO=${REPO:-rancher}
+mkdir -p dist/artifacts rootfs
+cd rootfs
 
-if $(echo ${TAG} | grep -q dirty); then
-    TAG=dev
-fi
+mkdir -p \
+usr/bin \
+usr/local/etc/strongswan.d
 
-cp ../bin/rancher-net .
-cp ../strongswan/* strongswan.tar.gz
+tar xvfz ../strongswan/strongswan*.tar.gz
+cp ../package/charon.conf usr/local/etc/strongswan.d/charon.conf
+cp ../package/start-ipsec.sh usr/bin/start-ipsec.sh
+cp ../bin/rancher-ipsec usr/bin/rancher-ipsec
 
-IMAGE=${REPO}/net:${TAG}
-docker build -t ${IMAGE} .
-echo ${IMAGE} > ../dist/images
-echo Built ${IMAGE}
+tar cvzf ../dist/artifacts/rancher-ipsec-${ARCH}-${VERSION}.tar.gz .
+
+echo "Built rancher-ipsec-${ARCH}-${VERSION}.tar.gz"

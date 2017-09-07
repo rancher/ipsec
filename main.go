@@ -9,13 +9,11 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
-	"github.com/rancher/rancher-net/arp"
-	"github.com/rancher/rancher-net/backend"
-	"github.com/rancher/rancher-net/backend/ipsec"
-	"github.com/rancher/rancher-net/backend/vxlan"
-	"github.com/rancher/rancher-net/mdchandler"
-	"github.com/rancher/rancher-net/server"
-	"github.com/rancher/rancher-net/store"
+	"github.com/rancher/ipsec/arp"
+	"github.com/rancher/ipsec/backend/ipsec"
+	"github.com/rancher/ipsec/mdchandler"
+	"github.com/rancher/ipsec/server"
+	"github.com/rancher/ipsec/store"
 )
 
 var (
@@ -24,10 +22,6 @@ var (
 )
 
 const (
-	backendFlag         = "backend"
-	backendNameIpsec    = "ipsec"
-	backendNameVxlan    = "vxlan"
-	metadataFlag        = "use-metadata"
 	metadataAddressFlag = "metadata-address"
 )
 
@@ -74,12 +68,6 @@ func main() {
 			Name: "local-ip, i",
 		},
 		cli.StringFlag{
-			Name:   backendFlag,
-			Value:  backendNameIpsec,
-			Usage:  "backend to use: ipsec/vxlan",
-			EnvVar: "RANCHER_NET_BACKEND",
-		},
-		cli.StringFlag{
 			Name:   metadataAddressFlag,
 			Value:  store.DefaultMetadataAddress,
 			Usage:  "metadata address to use",
@@ -97,21 +85,11 @@ func main() {
 			Usage:  "CHILD_SA rekey interval time",
 			EnvVar: "IPSEC_CHILD_SA_REKEY_INTERVAL",
 		},
-		cli.BoolFlag{
-			Name:   metadataFlag,
-			Usage:  "Use metadata instead of config file",
-			EnvVar: "RANCHER_NET_USE_METADATA",
-		},
 		cli.StringFlag{
 			Name:   "ipsec-replay-window-size",
 			Value:  ipsec.DefaultReplayWindowSize,
 			Usage:  "IPSec Replay Window Size",
 			EnvVar: "IPSEC_REPLAY_WINDOW_SIZE",
-		},
-		cli.IntFlag{
-			Name:   "vxlan-vtep-mtu",
-			Value:  vxlan.DefaultVTEPMTU,
-			EnvVar: "VXLAN_VTEP_MTU",
 		},
 	}
 	app.Action = func(ctx *cli.Context) {
@@ -164,60 +142,29 @@ func appMain(ctx *cli.Context) error {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 
-	backendToUse := ctx.GlobalString(backendFlag)
-	validBackend := backendToUse == backendNameIpsec || backendToUse == backendNameVxlan
-	if !validBackend {
-		logrus.Fatalf("Invalid backend specified")
-	}
-	logrus.Infof("Using backend: %v", backendToUse)
-
-	useMetadata := ctx.GlobalBool(metadataFlag)
-	logrus.Infof("Using metadata: %v", useMetadata)
-
 	done := make(chan error)
 
-	var overlay backend.Backend
-	if backendToUse == backendNameVxlan {
-		vxlanOverlay, err := vxlan.NewOverlay(ctx.GlobalInt("vxlan-vtep-mtu"))
-		if err != nil {
-			return err
-		}
-		overlay = vxlanOverlay
-		overlay.Start(true, "")
-		go func() {
-			done <- arp.ListenAndServeForVXLAN(vxlanOverlay, "eth0")
-		}()
-	} else {
-		var db store.Store
-		var err error
-		if useMetadata {
-			logrus.Infof("Reading info from metadata")
-			db, err = store.NewMetadataStore(ctx.GlobalString(metadataAddressFlag))
-			if err != nil {
-				logrus.Errorf("Error creating metadata store: %v", err)
-				return err
-			}
-
-		} else {
-			logrus.Infof("Reading info from config file")
-			db = store.NewSimpleStore(waitForFile(ctx.GlobalString("file")), "")
-		}
-
-		db.Reload()
-		ipsecOverlay := ipsec.NewOverlay(ctx.GlobalString("ipsec-config"), db)
-		ipsecOverlay.ReplayWindowSize = ctx.GlobalString("ipsec-replay-window-size")
-		ipsecOverlay.IPSecIkeSaRekeyInterval = ctx.GlobalString("ipsec-ike-sa-rekey-interval")
-		ipsecOverlay.IPSecChildSaRekeyInterval = ctx.GlobalString("ipsec-child-sa-rekey-interval")
-		if !ctx.GlobalBool("gcm") {
-			ipsecOverlay.Blacklist = []string{"aes128gcm16"}
-		}
-		overlay = ipsecOverlay
-		overlay.Start(ctx.GlobalBool("charon-launch"), ctx.GlobalString("charon-log"))
-
-		go func() {
-			done <- arp.ListenAndServe(db, "eth0")
-		}()
+	logrus.Infof("Reading info from metadata")
+	db, err := store.NewMetadataStore(ctx.GlobalString(metadataAddressFlag))
+	if err != nil {
+		logrus.Errorf("Error creating metadata store: %v", err)
+		return err
 	}
+
+	db.Reload()
+	ipsecOverlay := ipsec.NewOverlay(ctx.GlobalString("ipsec-config"), db)
+	ipsecOverlay.ReplayWindowSize = ctx.GlobalString("ipsec-replay-window-size")
+	ipsecOverlay.IPSecIkeSaRekeyInterval = ctx.GlobalString("ipsec-ike-sa-rekey-interval")
+	ipsecOverlay.IPSecChildSaRekeyInterval = ctx.GlobalString("ipsec-child-sa-rekey-interval")
+	if !ctx.GlobalBool("gcm") {
+		ipsecOverlay.Blacklist = []string{"aes128gcm16"}
+	}
+	overlay := ipsecOverlay
+	overlay.Start(ctx.GlobalBool("charon-launch"), ctx.GlobalString("charon-log"))
+
+	go func() {
+		done <- arp.ListenAndServe(db, "eth0")
+	}()
 
 	listenPort := ctx.GlobalString("listen")
 	logrus.Debugf("About to start server and listen on port: %v", listenPort)
@@ -233,12 +180,10 @@ func appMain(ctx *cli.Context) error {
 		return err
 	}
 
-	if useMetadata && backendToUse == backendNameIpsec {
-		go func() {
-			mdch := mdchandler.NewMetadataChangeHandler(ctx.GlobalString(metadataAddressFlag), overlay)
-			done <- mdch.Start()
-		}()
-	}
+	go func() {
+		mdch := mdchandler.NewMetadataChangeHandler(ctx.GlobalString(metadataAddressFlag), overlay)
+		done <- mdch.Start()
+	}()
 
 	return <-done
 }

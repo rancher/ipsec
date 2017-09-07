@@ -1,20 +1,17 @@
-rancher-net
+ipsec
 ========
 
-This microservice is responsible for powering the IPSec and VXLAN
+This microservice is responsible for powering the IPSec
 overlay networking in Rancher.
 
 ## Building
 
 `make`
 
-If you would like to build using a custom repo and tag:
-
-`REPO=your_docker_repo TAG=dev_or_sth_else make release`
 
 ## Running
 
-`./bin/rancher-net`
+`./bin/rancher-ipsec`
 
 ## License
 Copyright (c) 2014-2017 [Rancher Labs, Inc.](http://rancher.com)
