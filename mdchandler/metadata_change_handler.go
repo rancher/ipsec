@@ -3,7 +3,7 @@ package mdchandler
 import (
 	"fmt"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/leodotcloud/log"
 	"github.com/rancher/go-rancher-metadata/metadata"
 	"github.com/rancher/ipsec/backend"
 )
@@ -35,7 +35,7 @@ func NewMetadataChangeHandler(metadataAddress string, b backend.Backend) *Metada
 	metadataURL := fmt.Sprintf(metadataURLTemplate, metadataAddress)
 	mc, err := metadata.NewClientAndWait(metadataURL)
 	if err != nil {
-		logrus.Errorf("couldn't create metadata client: %v", err)
+		log.Errorf("couldn't create metadata client: %v", err)
 		return nil
 	}
 	return &MetadataChangeHandler{
@@ -47,18 +47,18 @@ func NewMetadataChangeHandler(metadataAddress string, b backend.Backend) *Metada
 // OnChangeHandler is the actual callback function called when
 // the metadata changes
 func (mdch *MetadataChangeHandler) OnChangeHandler(version string) {
-	logrus.Infof("Metadata OnChange received, version: %v", version)
+	log.Infof("Metadata OnChange received, version: %v", version)
 	err := mdch.Backend.Reload()
 	if err != nil {
-		logrus.Errorf("Error reloading backend after receiving the db change: %v", err)
+		log.Errorf("Error reloading backend after receiving the db change: %v", err)
 	} else {
-		logrus.Debugf("Reload successful")
+		log.Debugf("Reload successful")
 	}
 }
 
 // Start is used to begin the OnChange handling
 func (mdch *MetadataChangeHandler) Start() error {
-	logrus.Debugf("Starting the MetadataChangeHandler")
+	log.Debugf("Starting the MetadataChangeHandler")
 	mdch.mc.OnChange(changeCheckInterval, mdch.OnChangeHandler)
 
 	return nil

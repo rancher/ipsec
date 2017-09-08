@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"net"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/leodotcloud/log"
 	"github.com/mdlayher/arp"
 	"github.com/mdlayher/ethernet"
 	"github.com/rancher/ipsec/store"
@@ -22,7 +22,7 @@ func ListenAndServe(db store.Store, ifaceName string) error {
 		return err
 	}
 
-	logrus.Infof("Listening for ARP requests on %s", ifaceName)
+	log.Infof("Listening for ARP requests on %s", ifaceName)
 	for {
 		arpRequest, iface, err := client.Read()
 		if err != nil {
@@ -36,9 +36,9 @@ func ListenAndServe(db store.Store, ifaceName string) error {
 		}
 
 		targetIP := arpRequest.TargetIP.String()
-		logrus.Debugf("Arp request for %s", targetIP)
+		log.Debugf("Arp request for %s", targetIP)
 		if db.IsRemote(targetIP) {
-			logrus.Debugf("Sending arp reply for %s", targetIP)
+			log.Debugf("Sending arp reply for %s", targetIP)
 			if err := client.Reply(arpRequest, listenIface.HardwareAddr, arpRequest.TargetIP); err != nil {
 				return err
 			}

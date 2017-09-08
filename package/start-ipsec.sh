@@ -12,7 +12,6 @@ done
 export CHARON_PID_FILE=/var/run/charon.pid
 rm -f ${CHARON_PID_FILE}
 
-export PIDFILE=/var/run/rancher-ipsec.pid
 GCM=false
 
 for ((i=0; i<6; i++)); do
@@ -31,8 +30,6 @@ else
     DEBUG=""
 fi
 
-export LOCAL_IP=$(ip route get 8.8.8.8 | grep via | awk '{print $7}')
-export LOCAL_IP_WITH_SUBNET=$(ip addr | grep ${LOCAL_IP} | awk '{print $2}')
 
 mkdir -p /etc/ipsec
 curl -f -u ${CATTLE_ACCESS_KEY}:${CATTLE_SECRET_KEY} ${CATTLE_URL}/configcontent/psk > /etc/ipsec/psk.txt
@@ -40,8 +37,6 @@ curl -f -X PUT -d "" -u ${CATTLE_ACCESS_KEY}:${CATTLE_SECRET_KEY} ${CATTLE_URL}/
 GATEWAY=$(ip route get 8.8.8.8 | awk '{print $3}')
 iptables -t nat -I POSTROUTING -o eth0 -s $GATEWAY -j MASQUERADE
 exec rancher-ipsec \
--i ${LOCAL_IP_WITH_SUBNET} \
---pid-file ${PIDFILE} \
 --gcm=$GCM \
 --charon-launch \
 --ipsec-config /etc/ipsec \

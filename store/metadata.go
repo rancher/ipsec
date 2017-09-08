@@ -5,7 +5,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/leodotcloud/log"
 	"github.com/rancher/go-rancher-metadata/metadata"
 )
 
@@ -52,10 +52,10 @@ func NewMetadataStoreWithClientIP(metadataAddress, clientIP string) (*MetadataSt
 	}
 	metadataURL := fmt.Sprintf(metadataURLTemplate, metadataAddress)
 
-	logrus.Debugf("Creating new MetadataStore, metadataURL: %v, clientIP: %v", metadataURL, clientIP)
+	log.Debugf("Creating new MetadataStore, metadataURL: %v, clientIP: %v", metadataURL, clientIP)
 	mc, err := metadata.NewClientWithIPAndWait(metadataURL, clientIP)
 	if err != nil {
-		logrus.Errorf("couldn't create metadata client: %v", err)
+		log.Errorf("couldn't create metadata client: %v", err)
 		return nil, err
 	}
 
@@ -72,10 +72,10 @@ func NewMetadataStore(metadataAddress string) (*MetadataStore, error) {
 	}
 	metadataURL := fmt.Sprintf(metadataURLTemplate, metadataAddress)
 
-	logrus.Debugf("Creating new MetadataStore, metadataURL: %v", metadataURL)
+	log.Debugf("Creating new MetadataStore, metadataURL: %v", metadataURL)
 	mc, err := metadata.NewClientAndWait(metadataURL)
 	if err != nil {
-		logrus.Errorf("couldn't create metadata client: %v", err)
+		log.Errorf("couldn't create metadata client: %v", err)
 		return nil, err
 	}
 
@@ -94,7 +94,7 @@ func (ms *MetadataStore) LocalHostIPAddress() string {
 func (ms *MetadataStore) LocalIPAddress() string {
 	ip, _, err := net.ParseCIDR(ms.self.IPAddress)
 	if err != nil {
-		logrus.Errorf("error: %v", err)
+		log.Errorf("error: %v", err)
 		return ""
 	}
 
@@ -104,13 +104,13 @@ func (ms *MetadataStore) LocalIPAddress() string {
 // IsRemote is used to check if the given IP addresss is available on the local host or remote
 func (ms *MetadataStore) IsRemote(ipAddress string) bool {
 	if _, ok := ms.local[ipAddress]; ok {
-		logrus.Debugf("Local: %s", ipAddress)
+		log.Debugf("Local: %s", ipAddress)
 		return false
 	}
 
 	_, ok := ms.remote[ipAddress]
 	if ok {
-		logrus.Debugf("Remote: %s", ipAddress)
+		log.Debugf("Remote: %s", ipAddress)
 	}
 	return ok
 }
@@ -155,11 +155,11 @@ func getHostsMapFromHostsArray(hosts []metadata.Host) map[string]metadata.Host {
 	hostsMap := map[string]metadata.Host{}
 
 	for _, h := range hosts {
-		logrus.Debugf("h: %v", h)
+		log.Debugf("h: %v", h)
 		hostsMap[h.UUID] = h
 	}
 
-	logrus.Debugf("hostsMap: %v", hostsMap)
+	log.Debugf("hostsMap: %v", hostsMap)
 	return hostsMap
 }
 
@@ -170,13 +170,13 @@ func getNetworksMapFromNetworksArray(networks []metadata.Network) map[string]met
 		networksMap[aNetwork.UUID] = aNetwork
 	}
 
-	logrus.Debugf("networksMap: %+v", networksMap)
+	log.Debugf("networksMap: %+v", networksMap)
 	return networksMap
 }
 
 func (ms *MetadataStore) getLinkedFromServicesToSelf() []*metadata.Service {
 	linkedTo := ms.info.selfService.StackName + "/" + ms.info.selfService.Name
-	logrus.Debugf("getLinkedFromServicesToSelf linkedTo: %v", linkedTo)
+	log.Debugf("getLinkedFromServicesToSelf linkedTo: %v", linkedTo)
 
 	var linkedFromServices []*metadata.Service
 
@@ -195,7 +195,7 @@ func (ms *MetadataStore) getLinkedFromServicesToSelf() []*metadata.Service {
 		}
 	}
 
-	logrus.Debugf("linkedFromServices: %v", linkedFromServices)
+	log.Debugf("linkedFromServices: %v", linkedFromServices)
 	return linkedFromServices
 }
 
@@ -210,9 +210,9 @@ func (ms *MetadataStore) getLinkedPeersInfo() (map[string]bool, []metadata.Conta
 	if len(ms.info.selfService.Links) > 0 {
 		for linkedServiceName := range ms.info.selfService.Links {
 			linkedServices, ok := ms.info.servicesMapByName[linkedServiceName]
-			logrus.Debugf("linkedServices: %+v", linkedServices)
+			log.Debugf("linkedServices: %+v", linkedServices)
 			if !ok {
-				logrus.Errorf("Current service is linked to service: %v, but cannot find in servicesMapByName", linkedServiceName)
+				log.Errorf("Current service is linked to service: %v, but cannot find in servicesMapByName", linkedServiceName)
 				continue
 			} else {
 				for _, aService := range linkedServices {
@@ -251,13 +251,13 @@ func (ms *MetadataStore) getLinkedPeersInfo() (map[string]bool, []metadata.Conta
 		}
 	}
 
-	logrus.Debugf("getLinkedPeersInfo linkedPeersNetworks: %+v", linkedPeersNetworks)
-	logrus.Debugf("getLinkedPeersInfo linkedPeersContainers: %v", linkedPeersContainers)
+	log.Debugf("getLinkedPeersInfo linkedPeersNetworks: %+v", linkedPeersNetworks)
+	log.Debugf("getLinkedPeersInfo linkedPeersContainers: %v", linkedPeersContainers)
 	return linkedPeersNetworks, linkedPeersContainers
 }
 
 func (ms *MetadataStore) doInternalRefresh() {
-	logrus.Debugf("Doing internal refresh")
+	log.Debugf("Doing internal refresh")
 
 	ms.self, _ = ms.getEntryFromContainer(ms.info.selfContainer)
 
@@ -301,7 +301,7 @@ func (ms *MetadataStore) doInternalRefresh() {
 			continue
 		}
 
-		logrus.Debugf("Getting Entry from Container: %+v", c)
+		log.Debugf("Getting Entry from Container: %+v", c)
 		e, _ := ms.getEntryFromContainer(c)
 
 		ipNoCidr := strings.Split(e.IPAddress, "/")[0]
@@ -324,14 +324,14 @@ func (ms *MetadataStore) doInternalRefresh() {
 			}
 		}
 
-		logrus.Debugf("entry: %+v", e)
+		log.Debugf("entry: %+v", e)
 		entries = append(entries, e)
 	}
 
-	logrus.Debugf("entries: %+v", entries)
-	logrus.Debugf("peersMap: %+v", peersMap)
-	logrus.Debugf("local: %+v", local)
-	logrus.Debugf("remote: %+v", remote)
+	log.Debugf("entries: %+v", entries)
+	log.Debugf("peersMap: %+v", peersMap)
+	log.Debugf("local: %+v", local)
+	log.Debugf("remote: %+v", remote)
 
 	ms.entries = entries
 	ms.peersMap = peersMap
@@ -360,7 +360,7 @@ func getServicesMapByName(services []metadata.Service, selfService metadata.Serv
 			servicesMapByName[key] = []*metadata.Service{&services[index]}
 		}
 	}
-	logrus.Debugf("servicesMapByName: %+v", servicesMapByName)
+	log.Debugf("servicesMapByName: %+v", servicesMapByName)
 
 	return servicesMapByName
 }
@@ -371,13 +371,13 @@ func getSubnetPrefixFromNetworkConfig(network metadata.Network) string {
 		props, _ := file.(map[string]interface{})
 		ipamConf, found := props["ipam"].(map[string]interface{})
 		if !found {
-			logrus.Errorf("couldn't find ipam key in network config")
+			log.Errorf("couldn't find ipam key in network config")
 			return defaultSubnetPrefix
 		}
 
 		sp, found := ipamConf["subnetPrefixSize"].(string)
 		if !found {
-			logrus.Errorf("couldn't find subnetPrefixSize in network ipam config")
+			log.Errorf("couldn't find subnetPrefixSize in network ipam config")
 			return defaultSubnetPrefix
 		}
 		return sp
@@ -387,41 +387,41 @@ func getSubnetPrefixFromNetworkConfig(network metadata.Network) string {
 
 // Reload is used to refresh/reload the data from metadata
 func (ms *MetadataStore) Reload() error {
-	logrus.Debugf("Reloading ...")
+	log.Debugf("Reloading ...")
 
 	selfContainer, err := ms.mc.GetSelfContainer()
 	if err != nil {
-		logrus.Errorf("couldn't get self container from metadata: %v", err)
+		log.Errorf("couldn't get self container from metadata: %v", err)
 		return err
 	}
 
 	selfHost, err := ms.mc.GetSelfHost()
 	if err != nil {
-		logrus.Errorf("couldn't get self host from metadata: %v", err)
+		log.Errorf("couldn't get self host from metadata: %v", err)
 		return err
 	}
 
 	hosts, err := ms.mc.GetHosts()
 	if err != nil {
-		logrus.Errorf("couldn't get hosts from metadata: %v", err)
+		log.Errorf("couldn't get hosts from metadata: %v", err)
 		return err
 	}
 
 	containers, err := ms.mc.GetContainers()
 	if err != nil {
-		logrus.Errorf("couldn't get containers from metadata: %v", err)
+		log.Errorf("couldn't get containers from metadata: %v", err)
 		return err
 	}
 
 	selfService, err := ms.mc.GetSelfService()
 	if err != nil {
-		logrus.Errorf("couldn't get self service from metadata: %v", err)
+		log.Errorf("couldn't get self service from metadata: %v", err)
 		return err
 	}
 
 	services, err := ms.mc.GetServices()
 	if err != nil {
-		logrus.Errorf("couldn't get services from metadata: %v", err)
+		log.Errorf("couldn't get services from metadata: %v", err)
 		return err
 	}
 
@@ -431,7 +431,7 @@ func (ms *MetadataStore) Reload() error {
 
 	networks, err := ms.mc.GetNetworks()
 	if err != nil {
-		logrus.Errorf("couldn't get networks from metadata: %v", err)
+		log.Errorf("couldn't get networks from metadata: %v", err)
 		return err
 	}
 	networksMap := getNetworksMapFromNetworksArray(networks)

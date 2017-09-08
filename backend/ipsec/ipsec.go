@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/bronze1man/goStrongswanVici"
+	"github.com/leodotcloud/log"
 	"github.com/rancher/ipsec/store"
 	"github.com/vishvananda/netlink"
 )
@@ -74,7 +74,7 @@ func (o *Overlay) Start(launch bool, logFile string) {
 	}
 
 	if err := o.loadConns(); err != nil {
-		logrus.Fatalf("Failed to load connections from charon: %v", err)
+		log.Fatalf("Failed to load connections from charon: %v", err)
 	}
 
 }
@@ -114,7 +114,7 @@ func (o *Overlay) loadConns() error {
 	for _, conn := range conns {
 		for k := range conn {
 			if strings.HasPrefix(k, "conn-") {
-				logrus.Infof("Found existing connection: %s", k)
+				log.Infof("Found existing connection: %s", k)
 				o.hosts[strings.TrimPrefix(k, "conn-")] = o.templates.Revision()
 			}
 		}
@@ -143,18 +143,18 @@ func (o *Overlay) monitorCharon() {
 	for {
 		newPidBytes, err := ioutil.ReadFile(pidFile)
 		if err != nil {
-			logrus.Fatalf("Failed to read %s", pidFile)
+			log.Fatalf("Failed to read %s", pidFile)
 		}
 		newPid := strings.TrimSpace(string(newPidBytes))
 		if pid == "" {
 			pid = newPid
-			logrus.Infof("Charon running PID: %s", pid)
+			log.Infof("Charon running PID: %s", pid)
 		} else if pid != newPid {
-			logrus.Fatalf("Charon restarted, old PID: %s, new PID: %s", pid, newPid)
+			log.Fatalf("Charon restarted, old PID: %s, new PID: %s", pid, newPid)
 		} else {
 			o.Lock()
 			if err := Test(); err != nil {
-				logrus.Errorf("Killing charon due to: %v", err)
+				log.Errorf("Killing charon due to: %v", err)
 				o.killCharon(pid)
 			}
 			o.Unlock()
@@ -170,7 +170,7 @@ func runCharon(logFile string) {
 	args := []string{}
 	for _, i := range strings.Split("dmn|mgr|ike|chd|cfg|knl|net|asn|tnc|imc|imv|pts|tls|esp|lib", "|") {
 		args = append(args, "--debug-"+i)
-		if logrus.GetLevel() == logrus.DebugLevel {
+		if log.GetLevel().String() == "debug" {
 			args = append(args, "3")
 		} else {
 			args = append(args, "1")
@@ -184,7 +184,7 @@ func runCharon(logFile string) {
 	if logFile != "" {
 		output, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
-			logrus.Fatalf("Failed to log to file %s: %v", logFile, err)
+			log.Fatalf("Failed to log to file %s: %v", logFile, err)
 		}
 		defer output.Close()
 		cmd.Stdout = output
@@ -195,11 +195,11 @@ func runCharon(logFile string) {
 		Pdeathsig: syscall.SIGTERM,
 	}
 
-	logrus.Fatalf("charon exited: %v", cmd.Run())
+	log.Fatalf("charon exited: %v", cmd.Run())
 }
 
 func handleErr(firstErr, err error, fmt string, args ...interface{}) error {
-	logrus.Errorf(fmt, args...)
+	log.Errorf(fmt, args...)
 	if firstErr != nil {
 		return firstErr
 	}
@@ -209,7 +209,7 @@ func handleErr(firstErr, err error, fmt string, args ...interface{}) error {
 func (o *Overlay) configure() error {
 	o.Lock()
 	defer o.Unlock()
-	logrus.Infof("Reconfiguring")
+	log.Infof("Reconfiguring")
 
 	if err := o.templates.Reload(); err != nil {
 		return err
@@ -278,7 +278,7 @@ func (o *Overlay) killCharon(pid string) {
 	}
 
 	if err != nil {
-		logrus.Error("Can't kill %s: %v", pid, err)
+		log.Errorf("Can't kill %s: %v", pid, err)
 	}
 }
 
@@ -286,10 +286,10 @@ func (o *Overlay) deletePolicies(policies map[string]netlink.XfrmPolicy) error {
 	var lastErr error
 	for _, policy := range policies {
 		if err := netlink.XfrmPolicyDel(&policy); err != nil {
-			logrus.Errorf("Failed to delete policy: %+v, %v", policy, err)
+			log.Errorf("Failed to delete policy: %+v, %v", policy, err)
 			lastErr = err
 		} else {
-			logrus.Infof("Deleted policy: %+v", policy)
+			log.Infof("Deleted policy: %+v", policy)
 		}
 	}
 	return lastErr
@@ -299,10 +299,10 @@ func (o *Overlay) addPolicies(policies map[string]netlink.XfrmPolicy) error {
 	var lastErr error
 	for _, policy := range policies {
 		if err := netlink.XfrmPolicyAdd(&policy); err != nil {
-			logrus.Errorf("Failed to add policy: %+v, %v", policy, err)
+			log.Errorf("Failed to add policy: %+v, %v", policy, err)
 			lastErr = err
 		} else {
-			logrus.Infof("Added policy: %+v", policy)
+			log.Infof("Added policy: %+v", policy)
 		}
 	}
 	return lastErr
@@ -333,7 +333,7 @@ func (o *Overlay) removeHosts() error {
 			if err := o.removeHost(k); err != nil {
 				firstErr = handleErr(firstErr, err, "Failed to add remove connection for host %s: %v", k, err)
 			} else {
-				logrus.Infof("Removed connection for %s", k)
+				log.Infof("Removed connection for %s", k)
 				delete(o.hosts, k)
 			}
 		}
@@ -350,7 +350,7 @@ func (o *Overlay) removeHost(host string) error {
 	defer client.Close()
 
 	name := "conn-" + strings.Split(host, "/")[0]
-	logrus.Infof("Removing connection for %s", name)
+	log.Infof("Removing connection for %s", name)
 	return client.UnloadConn(&goStrongswanVici.UnloadConnRequest{
 		Name: name,
 	})
@@ -366,7 +366,7 @@ func getClient() (*goStrongswanVici.ClientConn, error) {
 		}
 
 		if i > 0 {
-			logrus.Errorf("Failed to connect to charon: %v", err)
+			log.Errorf("Failed to connect to charon: %v", err)
 		}
 		time.Sleep(1 * time.Second)
 	}
@@ -388,7 +388,7 @@ func (o *Overlay) loadSharedKey(ipAddress string) error {
 
 	o.keyAttempt[ipAddress] = true
 	if o.keys[ipAddress] == key {
-		logrus.Debugf("Key for %s already loaded", ipAddress)
+		log.Debugf("Key for %s already loaded", ipAddress)
 		return nil
 	}
 
@@ -406,12 +406,12 @@ func (o *Overlay) loadSharedKey(ipAddress string) error {
 
 	err = client.LoadShared(sharedKey)
 	if err != nil {
-		logrus.Infof("Failed to load pre-shared key for %s: %v", ipAddress, err)
+		log.Infof("Failed to load pre-shared key for %s: %v", ipAddress, err)
 		return err
 	}
 
 	o.keys[ipAddress] = key
-	logrus.Infof("Loaded pre-shared key for %s", ipAddress)
+	log.Infof("Loaded pre-shared key for %s", ipAddress)
 	return nil
 }
 
@@ -436,7 +436,7 @@ func (o *Overlay) filterAlgos(algos []string) []string {
 func (o *Overlay) addHostConnection(entry store.Entry) error {
 	o.hostAttempt[entry.HostIPAddress] = true
 	if o.hosts[entry.HostIPAddress] == o.templates.Revision() {
-		logrus.Debugf("Connection already loaded for host %s", entry.HostIPAddress)
+		log.Debugf("Connection already loaded for host %s", entry.HostIPAddress)
 		return nil
 	}
 
@@ -453,9 +453,9 @@ func (o *Overlay) addHostConnection(entry store.Entry) error {
 	if strings.Compare(entry.HostIPAddress, o.db.LocalHostIPAddress()) < 0 {
 		childSAConf.RekeyTime = "8760h"
 	}
-	logrus.Infof("For entry: %v, using RekeyTime: %v", entry, childSAConf.RekeyTime)
+	log.Infof("For entry: %v, using RekeyTime: %v", entry, childSAConf.RekeyTime)
 
-	logrus.Debugf("Using ReplayWindowSize: %v", o.ReplayWindowSize)
+	log.Debugf("Using ReplayWindowSize: %v", o.ReplayWindowSize)
 	childSAConf.ReplayWindow = o.ReplayWindowSize
 
 	ikeConf := o.templates.NewIkeConf()
@@ -481,12 +481,12 @@ func (o *Overlay) addHostConnection(entry store.Entry) error {
 		}
 	}
 	if err != nil {
-		logrus.Errorf("Failed loading connection %s: %v", name, err)
+		log.Errorf("Failed loading connection %s: %v", name, err)
 		return err
 	}
 
 	o.hosts[entry.HostIPAddress] = o.templates.Revision()
-	logrus.Infof("Loaded connection: %v, %v, %v", name, ikeConf.Proposals, childSAConf.ESPProposals)
+	log.Infof("Loaded connection: %v, %v, %v", name, ikeConf.Proposals, childSAConf.ESPProposals)
 
 	return nil
 }

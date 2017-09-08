@@ -8,8 +8,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/bronze1man/goStrongswanVici"
+	"github.com/leodotcloud/log"
 )
 
 const (
@@ -44,6 +44,7 @@ var (
 	}`)
 )
 
+// Templates is used to store the configuration templates
 type Templates struct {
 	ConfigDir           string
 	ikeConfTemplate     []byte
@@ -51,6 +52,7 @@ type Templates struct {
 	revision            string
 }
 
+// Reload is used to refresh the templates
 func (t *Templates) Reload() error {
 	var err error
 	t.ikeConfTemplate, err = t.loadBytes(ikeConfName, defaultIkeConf)
@@ -58,7 +60,7 @@ func (t *Templates) Reload() error {
 		return err
 	}
 	if err := json.Unmarshal(t.ikeConfTemplate, &goStrongswanVici.IKEConf{}); err != nil {
-		logrus.Errorf("Failed to unmarshal: %v\n\t%s", err, string(t.ikeConfTemplate))
+		log.Errorf("Failed to unmarshal: %v\n\t%s", err, string(t.ikeConfTemplate))
 		return err
 	}
 
@@ -67,7 +69,7 @@ func (t *Templates) Reload() error {
 		return err
 	}
 	if err := json.Unmarshal(t.childSaConfTemplate, &goStrongswanVici.ChildSAConf{}); err != nil {
-		logrus.Errorf("Failed to unmarshal: %v\n\t%s", err, string(t.childSaConfTemplate))
+		log.Errorf("Failed to unmarshal: %v\n\t%s", err, string(t.childSaConfTemplate))
 		return err
 	}
 
@@ -79,10 +81,12 @@ func (t *Templates) Reload() error {
 	return nil
 }
 
+// Revision returns the current revision of the templates
 func (t *Templates) Revision() string {
 	return t.revision
 }
 
+// NewIkeConf returns IKE config from the template
 func (t *Templates) NewIkeConf() goStrongswanVici.IKEConf {
 	var resp goStrongswanVici.IKEConf
 	// Should never fail because we checked this in Reload()
@@ -90,6 +94,7 @@ func (t *Templates) NewIkeConf() goStrongswanVici.IKEConf {
 	return resp
 }
 
+// NewChildSaConf returns CHILD_SA config from the template
 func (t *Templates) NewChildSaConf() goStrongswanVici.ChildSAConf {
 	var resp goStrongswanVici.ChildSAConf
 	// Should never fail because we checked this in Reload()

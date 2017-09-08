@@ -1,14 +1,10 @@
 package main
 
 import (
-	"io/ioutil"
-	"log"
 	"os"
-	"strconv"
-	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
+	"github.com/leodotcloud/log"
 	"github.com/rancher/ipsec/arp"
 	"github.com/rancher/ipsec/backend/ipsec"
 	"github.com/rancher/ipsec/mdchandler"
@@ -29,16 +25,6 @@ func main() {
 	app := cli.NewApp()
 	app.Version = VERSION
 	app.Flags = []cli.Flag{
-		cli.StringFlag{
-			Name: "log",
-		},
-		cli.StringFlag{
-			Name: "pid-file",
-		},
-		cli.StringFlag{
-			Name:  "file, f",
-			Value: "config.json",
-		},
 		cli.StringFlag{
 			Name:  "ipsec-config, c",
 			Value: ".",
@@ -61,11 +47,9 @@ func main() {
 			Name: "debug",
 		},
 		cli.StringFlag{
-			Name:  "listen",
-			Value: ":8111",
-		},
-		cli.StringFlag{
-			Name: "local-ip, i",
+			Name:   "listen",
+			Value:  "localhost:8111",
+			EnvVar: "RANCHER_SERVICE_LISTEN_PORT",
 		},
 		cli.StringFlag{
 			Name:   metadataAddressFlag,
@@ -94,23 +78,11 @@ func main() {
 	}
 	app.Action = func(ctx *cli.Context) {
 		if err := appMain(ctx); err != nil {
-			logrus.Fatal(err)
+			log.Fatalf("error: %v", err)
 		}
 	}
 
 	app.Run(os.Args)
-}
-
-func waitForFile(file string) string {
-	for i := 0; i < 60; i++ {
-		if _, err := os.Stat(file); err == nil {
-			return file
-		}
-		logrus.Infof("Waiting for file %s", file)
-		time.Sleep(1 * time.Second)
-	}
-	logrus.Fatalf("Failed to find %s", file)
-	return ""
 }
 
 func appMain(ctx *cli.Context) error {
@@ -121,33 +93,16 @@ func appMain(ctx *cli.Context) error {
 		os.Exit(0)
 	}
 
-	logFile := ctx.GlobalString("log")
-	if logFile != "" {
-		if output, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666); err != nil {
-			logrus.Fatalf("Failed to log to file %s: %v", logFile, err)
-		} else {
-			logrus.SetOutput(output)
-		}
-	}
-
-	pidFile := ctx.GlobalString("pid-file")
-	if pidFile != "" {
-		logrus.Infof("Writing pid %d to %s", os.Getpid(), pidFile)
-		if err := ioutil.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0644); err != nil {
-			logrus.Fatalf("Failed to write pid file %s: %v", pidFile, err)
-		}
-	}
-
 	if ctx.GlobalBool("debug") {
-		logrus.SetLevel(logrus.DebugLevel)
+		log.SetLevelString("debug")
 	}
 
 	done := make(chan error)
 
-	logrus.Infof("Reading info from metadata")
+	log.Infof("Reading info from metadata")
 	db, err := store.NewMetadataStore(ctx.GlobalString(metadataAddressFlag))
 	if err != nil {
-		logrus.Errorf("Error creating metadata store: %v", err)
+		log.Errorf("Error creating metadata store: %v", err)
 		return err
 	}
 
@@ -167,7 +122,7 @@ func appMain(ctx *cli.Context) error {
 	}()
 
 	listenPort := ctx.GlobalString("listen")
-	logrus.Debugf("About to start server and listen on port: %v", listenPort)
+	log.Debugf("About to start server and listen on port: %v", listenPort)
 	go func() {
 		s := server.Server{
 			Backend: overlay,
@@ -176,7 +131,7 @@ func appMain(ctx *cli.Context) error {
 	}()
 
 	if err := overlay.Reload(); err != nil {
-		logrus.Errorf("couldn't reload the overlay: %v", err)
+		log.Errorf("couldn't reload the overlay: %v", err)
 		return err
 	}
 
