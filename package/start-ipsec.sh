@@ -32,8 +32,17 @@ fi
 
 
 mkdir -p /etc/ipsec
-curl -f -u ${CATTLE_ACCESS_KEY}:${CATTLE_SECRET_KEY} ${CATTLE_URL}/configcontent/psk > /etc/ipsec/psk.txt
-curl -f -X PUT -d "" -u ${CATTLE_ACCESS_KEY}:${CATTLE_SECRET_KEY} ${CATTLE_URL}/configcontent/psk?version=latest
+if [ "$TOKEN_PSK" = "true" ]; then
+    curl -s -f http://169.254.169.250/2016-07-29/self/service/token > /etc/ipsec/psk.txt
+    if [ -z /etc/ipsec/psk.txt ]; then
+        echo Failed to download PSK
+        exit 1
+    fi
+else
+    curl -f -u ${CATTLE_ACCESS_KEY}:${CATTLE_SECRET_KEY} ${CATTLE_URL}/configcontent/psk > /etc/ipsec/psk.txt
+    curl -f -X PUT -d "" -u ${CATTLE_ACCESS_KEY}:${CATTLE_SECRET_KEY} ${CATTLE_URL}/configcontent/psk?version=latest
+fi
+
 GATEWAY=$(ip route get 8.8.8.8 | awk '{print $3}')
 iptables -t nat -I POSTROUTING -o eth0 -s $GATEWAY -j MASQUERADE
 exec rancher-ipsec \
