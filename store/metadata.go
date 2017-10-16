@@ -276,7 +276,7 @@ func (ms *MetadataStore) doInternalRefresh() {
 	var allPeersContainers []metadata.Container
 	allPeersContainers = append(allPeersContainers, linkedPeersContainers...)
 	for _, c := range ms.info.selfService.Containers {
-		if utils.IsContainerConsideredRunning(aContainer) {
+		if utils.IsContainerConsideredRunning(c) {
 			allPeersContainers = append(allPeersContainers, c)
 		}
 	}
@@ -289,7 +289,7 @@ func (ms *MetadataStore) doInternalRefresh() {
 	}
 
 	for _, c := range ms.info.containers {
-		if !utils.IsContainerConsideredRunning(aContainer) {
+		if !utils.IsContainerConsideredRunning(c) {
 			continue
 		}
 
