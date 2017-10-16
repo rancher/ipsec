@@ -7,6 +7,7 @@ import (
 
 	"github.com/leodotcloud/log"
 	"github.com/rancher/go-rancher-metadata/metadata"
+	"github.com/rancher/ipsec/utils"
 )
 
 const (
@@ -217,7 +218,7 @@ func (ms *MetadataStore) getLinkedPeersInfo() (map[string]bool, []metadata.Conta
 			} else {
 				for _, aService := range linkedServices {
 					for _, aContainer := range aService.Containers {
-						if !(aContainer.State == "running" || aContainer.State == "starting") {
+						if !utils.IsContainerConsideredRunning(aContainer) {
 							continue
 						}
 						// Skip containers whose network names don't match self
@@ -236,7 +237,7 @@ func (ms *MetadataStore) getLinkedPeersInfo() (map[string]bool, []metadata.Conta
 		linkedFromServices := ms.getLinkedFromServicesToSelf()
 		for _, aService := range linkedFromServices {
 			for _, aContainer := range aService.Containers {
-				if !(aContainer.State == "running" || aContainer.State == "starting") {
+				if !utils.IsContainerConsideredRunning(aContainer) {
 					continue
 				}
 				// Skip containers whose network names don't match self
@@ -275,7 +276,7 @@ func (ms *MetadataStore) doInternalRefresh() {
 	var allPeersContainers []metadata.Container
 	allPeersContainers = append(allPeersContainers, linkedPeersContainers...)
 	for _, c := range ms.info.selfService.Containers {
-		if c.State == "running" || c.State == "starting" {
+		if utils.IsContainerConsideredRunning(aContainer) {
 			allPeersContainers = append(allPeersContainers, c)
 		}
 	}
@@ -288,7 +289,7 @@ func (ms *MetadataStore) doInternalRefresh() {
 	}
 
 	for _, c := range ms.info.containers {
-		if !(c.State == "running" || c.State == "starting") {
+		if !utils.IsContainerConsideredRunning(aContainer) {
 			continue
 		}
 
