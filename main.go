@@ -9,6 +9,7 @@ import (
 	"github.com/rancher/go-rancher-metadata/metadata"
 	"github.com/rancher/ipsec/arp"
 	"github.com/rancher/ipsec/backend/ipsec"
+	"github.com/rancher/ipsec/monitor"
 	"github.com/rancher/ipsec/server"
 	"github.com/rancher/ipsec/store"
 )
@@ -154,6 +155,8 @@ func appMain(ctx *cli.Context) error {
 		log.Errorf("couldn't reload the overlay: %v", err)
 		return err
 	}
+
+	monitor.Watch(mc)
 
 	return <-done
 }
