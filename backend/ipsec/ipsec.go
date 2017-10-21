@@ -16,6 +16,7 @@ import (
 
 	"github.com/bronze1man/goStrongswanVici"
 	"github.com/leodotcloud/log"
+	"github.com/rancher/go-rancher-metadata/metadata"
 	"github.com/rancher/ipsec/store"
 	"github.com/vishvananda/netlink"
 )
@@ -46,6 +47,7 @@ type Overlay struct {
 	hosts                     map[string]string
 	templates                 Templates
 	db                        store.Store
+	mc                        metadata.Client
 	psk                       string
 	Blacklist                 []string
 	ReplayWindowSize          string
@@ -54,8 +56,9 @@ type Overlay struct {
 }
 
 // NewOverlay creates a new Overlay
-func NewOverlay(configDir string, db store.Store) *Overlay {
+func NewOverlay(configDir string, db store.Store, mc metadata.Client) *Overlay {
 	return &Overlay{
+		mc: mc,
 		db: db,
 		templates: Templates{
 			ConfigDir: configDir,
@@ -73,10 +76,18 @@ func (o *Overlay) Start(launch bool, logFile string) {
 		go o.monitorCharon()
 	}
 
+	go o.mc.OnChange(5, o.onChangeNoError)
+
 	if err := o.loadConns(); err != nil {
 		log.Fatalf("Failed to load connections from charon: %v", err)
 	}
 
+}
+
+func (o *Overlay) onChangeNoError(version string) {
+	if err := o.Reload(); err != nil {
+		log.Errorf("failed to reload overlay: %v", err)
+	}
 }
 
 // Test ...

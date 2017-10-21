@@ -1,15 +1,23 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/codegangsta/cli"
 	"github.com/leodotcloud/log"
+	"github.com/rancher/go-rancher-metadata/metadata"
 	"github.com/rancher/ipsec/arp"
 	"github.com/rancher/ipsec/backend/ipsec"
-	"github.com/rancher/ipsec/mdchandler"
 	"github.com/rancher/ipsec/server"
 	"github.com/rancher/ipsec/store"
+)
+
+const (
+	metadataURLTemplate = "http://%v/2015-12-19"
+
+	// DefaultMetadataAddress specifies the default value to use if nothing is specified
+	DefaultMetadataAddress = "169.254.169.250"
 )
 
 var (
@@ -100,14 +108,26 @@ func appMain(ctx *cli.Context) error {
 	done := make(chan error)
 
 	log.Infof("Reading info from metadata")
-	db, err := store.NewMetadataStore(ctx.GlobalString(metadataAddressFlag))
+	metadataAddress := ctx.GlobalString(metadataAddressFlag)
+	if metadataAddress == "" {
+		metadataAddress = DefaultMetadataAddress
+	}
+	metadataURL := fmt.Sprintf(metadataURLTemplate, metadataAddress)
+	mc, err := metadata.NewClientAndWait(metadataURL)
+	if err != nil {
+		log.Errorf("couldn't create metadata client: %v", err)
+		return nil
+	}
+
+	db, err := store.NewMetadataStore(mc)
 	if err != nil {
 		log.Errorf("Error creating metadata store: %v", err)
 		return err
 	}
 
 	db.Reload()
-	ipsecOverlay := ipsec.NewOverlay(ctx.GlobalString("ipsec-config"), db)
+
+	ipsecOverlay := ipsec.NewOverlay(ctx.GlobalString("ipsec-config"), db, mc)
 	ipsecOverlay.ReplayWindowSize = ctx.GlobalString("ipsec-replay-window-size")
 	ipsecOverlay.IPSecIkeSaRekeyInterval = ctx.GlobalString("ipsec-ike-sa-rekey-interval")
 	ipsecOverlay.IPSecChildSaRekeyInterval = ctx.GlobalString("ipsec-child-sa-rekey-interval")
@@ -134,11 +154,6 @@ func appMain(ctx *cli.Context) error {
 		log.Errorf("couldn't reload the overlay: %v", err)
 		return err
 	}
-
-	go func() {
-		mdch := mdchandler.NewMetadataChangeHandler(ctx.GlobalString(metadataAddressFlag), overlay)
-		done <- mdch.Start()
-	}()
 
 	return <-done
 }
