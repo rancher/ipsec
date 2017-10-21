@@ -67,21 +67,10 @@ func NewMetadataStoreWithClientIP(metadataAddress, clientIP string) (*MetadataSt
 }
 
 // NewMetadataStore creates, intializes and returns a store for use
-func NewMetadataStore(metadataAddress string) (*MetadataStore, error) {
-	if metadataAddress == "" {
-		metadataAddress = DefaultMetadataAddress
+func NewMetadataStore(mc metadata.Client) (*MetadataStore, error) {
+	ms := &MetadataStore{
+		mc: mc,
 	}
-	metadataURL := fmt.Sprintf(metadataURLTemplate, metadataAddress)
-
-	log.Debugf("Creating new MetadataStore, metadataURL: %v", metadataURL)
-	mc, err := metadata.NewClientAndWait(metadataURL)
-	if err != nil {
-		log.Errorf("couldn't create metadata client: %v", err)
-		return nil, err
-	}
-
-	ms := &MetadataStore{}
-	ms.mc = mc
 
 	return ms, nil
 }
