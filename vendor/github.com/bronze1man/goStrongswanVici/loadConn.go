@@ -41,8 +41,10 @@ type ChildSAConf struct {
 	ReplayWindow  string   `json:"replay_window,omitempty"`
 	Mode          string   `json:"mode"`
 	InstallPolicy string   `json:"policies"`
-	Updown        string   `json:"updown"`
+	UpDown        string   `json:"updown,omitempty"`
 	Priority      string   `json:"priority,omitempty"`
+	MarkIn        string   `json:"mark_in,omitempty"`
+	MarkOut       string   `json:"mark_out,omitempty"`
 }
 
 func (c *ClientConn) LoadConn(conn *map[string]IKEConf) error {

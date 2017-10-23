@@ -302,7 +302,10 @@ func readKeyString(r *bufio.Reader) (key string, msg string, err error) {
 	return
 }
 
-func getKey(key string, msg map[string]interface{}) string {
+// Since the original key chosen can have duplicates,
+// this function is used to map the original key to a new one
+// to make them unique.
+func getNewKeyToHandleDuplicates(key string, msg map[string]interface{}) string {
 	if _, ok := msg[key]; !ok {
 		return key
 	}
@@ -332,19 +335,19 @@ func readMap(r *bufio.Reader, isRoot bool) (msg map[string]interface{}, err erro
 			if err != nil {
 				return nil, err
 			}
-			msg[getKey(key, msg)] = value
+			msg[getNewKeyToHandleDuplicates(key, msg)] = value
 		case etLIST_START:
 			key, value, err := readKeyList(r)
 			if err != nil {
 				return nil, err
 			}
-			msg[getKey(key, msg)] = value
+			msg[getNewKeyToHandleDuplicates(key, msg)] = value
 		case etKEY_VALUE:
 			key, value, err := readKeyString(r)
 			if err != nil {
 				return nil, err
 			}
-			msg[getKey(key, msg)] = value
+			msg[getNewKeyToHandleDuplicates(key, msg)] = value
 		case etSECTION_END: //end of outer section
 			return msg, nil
 		default:
