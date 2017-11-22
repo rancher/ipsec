@@ -59,3 +59,18 @@ func SetLevel(lvl logrus.Level) {
 func GetLevel() logrus.Level {
 	return stdoutLogger.Level
 }
+
+// GetLevelString gets the current log level
+func GetLevelString() string {
+	var level string
+	switch stdoutLogger.Level {
+	case logrus.DebugLevel:
+		level = "debug"
+	case logrus.InfoLevel:
+		level = "info"
+	case logrus.ErrorLevel:
+		level = "error"
+	}
+
+	return level
+}
