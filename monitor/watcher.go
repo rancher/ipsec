@@ -16,7 +16,7 @@ type SAsMonitor struct {
 
 const (
 	startDelay         = time.Duration(60) * time.Second
-	monitorSAsInterval = time.Duration(5) * time.Second
+	monitorSAsInterval = time.Duration(60) * time.Second
 )
 
 // Watch monitors the IPSec SAs and intiates the tunnels if missing
@@ -96,11 +96,11 @@ func (sm *SAsMonitor) monitorSAs() {
 			log.Errorf("samonitor: error getting strongswan client: %v", err)
 			continue
 		}
-		defer client.Close()
 
 		sas, err := client.ListSas("", "")
 		if err != nil {
 			log.Errorf("samonitor: error getting list of sas from strongswan: %v", err)
+			client.Close()
 			continue
 		}
 
@@ -122,5 +122,6 @@ func (sm *SAsMonitor) monitorSAs() {
 				}
 			}
 		}
+		client.Close()
 	}
 }
