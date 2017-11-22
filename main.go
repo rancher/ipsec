@@ -6,6 +6,7 @@ import (
 
 	"github.com/codegangsta/cli"
 	"github.com/leodotcloud/log"
+	logserver "github.com/leodotcloud/log/server"
 	"github.com/rancher/go-rancher-metadata/metadata"
 	"github.com/rancher/ipsec/arp"
 	"github.com/rancher/ipsec/backend/ipsec"
@@ -95,6 +96,7 @@ func main() {
 }
 
 func appMain(ctx *cli.Context) error {
+	logserver.StartServerWithDefaults()
 	if ctx.GlobalBool("test-charon") {
 		if err := ipsec.Test(); err != nil {
 			log.Fatalf("Failed to talk to charon: %v", err)
