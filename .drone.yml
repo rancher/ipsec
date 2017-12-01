@@ -1,0 +1,16 @@
+---
+pipeline:
+  build:
+    privileged: true
+    image: rancher/dapper:1.12.1
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    commands:
+    - dapper ci
+  github_release:
+    image: plugins/github-release
+    secrets: [ github_token ]
+    files:
+      - dist/artifacts/rancher-ipsec-*.tar.gz
+    when:
+      event: tag
