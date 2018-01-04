@@ -184,7 +184,7 @@ func runCharon(logFile string) {
 		if log.GetLevel().String() == "debug" {
 			args = append(args, "3")
 		} else {
-			args = append(args, "1")
+			args = append(args, "0")
 		}
 	}
 
