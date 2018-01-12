@@ -8,10 +8,11 @@ import (
 	"github.com/leodotcloud/log"
 	"github.com/rancher/go-rancher-metadata/metadata"
 	"github.com/rancher/ipsec/utils"
+	pmutils "github.com/rancher/plugin-manager/utils"
 )
 
 const (
-	metadataURLTemplate = "http://%v/2015-12-19"
+	metadataURLTemplate = "http://%v/2016-07-29"
 	defaultSubnetPrefix = "/16"
 
 	// DefaultMetadataAddress specifies the default value to use if nothing is specified
@@ -28,11 +29,13 @@ type MetadataStore struct {
 	peersMap          map[string]Entry
 	remoteNonPeersMap map[string]Entry
 	info              *InfoFromMetadata
+	localSubnet       string
 }
 
 // InfoFromMetadata stores the information that has been fetched from
 // metadata server
 type InfoFromMetadata struct {
+	region                  string
 	selfContainer           metadata.Container
 	selfHost                metadata.Host
 	selfService             metadata.Service
@@ -44,6 +47,14 @@ type InfoFromMetadata struct {
 	containers              []metadata.Container
 	hostsMap                map[string]metadata.Host
 	networksMap             map[string]metadata.Network
+}
+
+// RegionsInfo stores the information for regions feature
+type RegionsInfo struct {
+	peersNetworks      map[string]bool
+	peersContainers    []metadata.Container
+	nonPeersContainers []metadata.Container
+	hosts              []metadata.Host
 }
 
 // NewMetadataStoreWithClientIP creates, intializes and returns a store for use with a specific Client IP to contact the metadata
@@ -80,6 +91,11 @@ func (ms *MetadataStore) LocalHostIPAddress() string {
 	return ms.self.HostIPAddress
 }
 
+// LocalSubnet returns the subnet used for the local network
+func (ms *MetadataStore) LocalSubnet() string {
+	return ms.localSubnet
+}
+
 // LocalIPAddress returns the IP address of the current agent
 func (ms *MetadataStore) LocalIPAddress() string {
 	ip, _, err := net.ParseCIDR(ms.self.IPAddress)
@@ -114,12 +130,17 @@ func (ms *MetadataStore) getEntryFromContainer(c metadata.Container) (Entry, err
 
 	isSelf := (c.PrimaryIp == ms.info.selfContainer.PrimaryIp)
 	isPeer := false
+	hostIP := ms.info.hostsMap[c.HostUUID].AgentIP
 
 	entry := Entry{
 		c.PrimaryIp + ms.info.selfNetworkSubnetPrefix,
-		ms.info.hostsMap[c.HostUUID].AgentIP,
+		hostIP,
 		isSelf,
 		isPeer,
+	}
+
+	if hostIP == "" {
+		log.Debugf("couldn't find host IP for entry: %v", entry)
 	}
 
 	return entry, nil
@@ -189,6 +210,63 @@ func (ms *MetadataStore) getLinkedFromServicesToSelf() []*metadata.Service {
 	return linkedFromServices
 }
 
+func (ms *MetadataStore) getRegionsInfo() (*RegionsInfo, error) {
+	regionPeersNetworks := map[string]bool{}
+	var regionPeersContainers []metadata.Container
+	var regionNonPeersContainers []metadata.Container
+	var regionHosts []metadata.Host
+	var err error
+
+	environments, err := ms.mc.GetEnvironments()
+	if err != nil {
+		log.Errorf("error fetching environments from metadata: %v", err)
+		return nil, err
+	}
+	log.Debugf("environments: %v", environments)
+
+	for _, aEnvironment := range environments {
+		regionHosts = append(regionHosts, aEnvironment.Hosts...)
+
+		var peerNetwork metadata.Network
+		for _, aNetwork := range aEnvironment.Networks {
+			if aNetwork.Name == ms.info.selfNetwork.Name {
+				peerNetwork = aNetwork
+				regionPeersNetworks[aNetwork.UUID] = true
+				break
+			}
+		}
+
+		for _, aContainer := range aEnvironment.Containers {
+			if !(aContainer.State == "running" || aContainer.State == "starting") {
+				continue
+			}
+			if aContainer.NetworkUUID != peerNetwork.UUID ||
+				aContainer.PrimaryIp == "" ||
+				aContainer.NetworkFromContainerUUID != "" {
+				continue
+			}
+
+			if aContainer.ServiceName == ms.info.selfService.Name {
+				regionPeersContainers = append(regionPeersContainers, aContainer)
+			} else {
+				regionNonPeersContainers = append(regionNonPeersContainers, aContainer)
+			}
+		}
+	}
+
+	log.Debugf("regionPeersNetworks: %v", regionPeersNetworks)
+	log.Debugf("regionPeersContainers: %v", regionPeersContainers)
+	log.Debugf("regionNonPeersContainers: %v", regionNonPeersContainers)
+
+	info := &RegionsInfo{
+		regionPeersNetworks,
+		regionPeersContainers,
+		regionNonPeersContainers,
+		regionHosts,
+	}
+	return info, err
+}
+
 // When environments are linked, the network services across the
 // environments are linked. This function goes through the links
 // either to/from and figures out the networks of those peers.
@@ -249,8 +327,6 @@ func (ms *MetadataStore) getLinkedPeersInfo() (map[string]bool, []metadata.Conta
 func (ms *MetadataStore) doInternalRefresh() {
 	log.Debugf("Doing internal refresh")
 
-	ms.self, _ = ms.getEntryFromContainer(ms.info.selfContainer)
-
 	seen := map[string]bool{}
 	entries := []Entry{}
 	local := map[string]Entry{}
@@ -262,8 +338,30 @@ func (ms *MetadataStore) doInternalRefresh() {
 	// Add self network to peersNetworks
 	peersNetworks[ms.info.selfContainer.NetworkUUID] = true
 
-	var allPeersContainers []metadata.Container
-	allPeersContainers = append(allPeersContainers, linkedPeersContainers...)
+	allHosts := ms.info.hosts
+	allContainers := ms.info.containers
+	allPeersContainers := linkedPeersContainers
+
+	// TODO: @alena, is this a valid assumption?
+	if ms.info.region != "" {
+		regionsInfo, err := ms.getRegionsInfo()
+		if err != nil {
+			log.Errorf("error fetching regions info: %v", err)
+		} else {
+			allHosts = append(allHosts, regionsInfo.hosts...)
+			allPeersContainers = append(allPeersContainers, regionsInfo.peersContainers...)
+			for k, v := range regionsInfo.peersNetworks {
+				peersNetworks[k] = v
+			}
+
+			allContainers = append(allContainers, regionsInfo.peersContainers...)
+			allContainers = append(allContainers, regionsInfo.nonPeersContainers...)
+		}
+	}
+
+	ms.info.hostsMap = getHostsMapFromHostsArray(allHosts)
+	ms.self, _ = ms.getEntryFromContainer(ms.info.selfContainer)
+
 	for _, c := range ms.info.selfService.Containers {
 		if utils.IsContainerConsideredRunning(c) {
 			allPeersContainers = append(allPeersContainers, c)
@@ -277,7 +375,7 @@ func (ms *MetadataStore) doInternalRefresh() {
 		peersMap[ipNoCidr] = e
 	}
 
-	for _, c := range ms.info.containers {
+	for _, c := range allContainers {
 		if !utils.IsContainerConsideredRunning(c) {
 			continue
 		}
@@ -367,7 +465,7 @@ func getSubnetPrefixFromNetworkConfig(network metadata.Network) string {
 
 		sp, found := ipamConf["subnetPrefixSize"].(string)
 		if !found {
-			log.Errorf("couldn't find subnetPrefixSize in network ipam config")
+			log.Debugf("couldn't find subnetPrefixSize in network ipam config")
 			return defaultSubnetPrefix
 		}
 		return sp
@@ -390,6 +488,12 @@ func (ms *MetadataStore) Reload() error {
 		log.Errorf("couldn't get self host from metadata: %v", err)
 		return err
 	}
+
+	region, err := ms.mc.GetRegionName()
+	if err != nil {
+		log.Debugf("couldn't get region name from metadata: %v", err)
+	}
+	log.Debugf("region: %v", region)
 
 	hosts, err := ms.mc.GetHosts()
 	if err != nil {
@@ -417,8 +521,6 @@ func (ms *MetadataStore) Reload() error {
 
 	servicesMapByName := getServicesMapByName(services, selfService)
 
-	hostsMap := getHostsMapFromHostsArray(hosts)
-
 	networks, err := ms.mc.GetNetworks()
 	if err != nil {
 		log.Errorf("couldn't get networks from metadata: %v", err)
@@ -432,19 +534,20 @@ func (ms *MetadataStore) Reload() error {
 	}
 
 	selfNetworkSubnetPrefix := getSubnetPrefixFromNetworkConfig(selfNetwork)
+	_, ms.localSubnet = pmutils.GetBridgeInfo(selfNetwork, selfHost)
 
 	info := &InfoFromMetadata{
-		selfContainer,
-		selfHost,
-		selfService,
-		selfNetwork,
-		selfNetworkSubnetPrefix,
-		services,
-		servicesMapByName,
-		hosts,
-		containers,
-		hostsMap,
-		networksMap,
+		region:                  region,
+		selfContainer:           selfContainer,
+		selfHost:                selfHost,
+		selfService:             selfService,
+		selfNetwork:             selfNetwork,
+		selfNetworkSubnetPrefix: selfNetworkSubnetPrefix,
+		services:                services,
+		servicesMapByName:       servicesMapByName,
+		hosts:                   hosts,
+		containers:              containers,
+		networksMap:             networksMap,
 	}
 
 	ms.info = info

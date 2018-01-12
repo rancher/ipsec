@@ -18,4 +18,5 @@ type Store interface {
 	RemoteNonPeerEntriesMap() map[string]Entry
 	PeerEntriesMap() map[string]Entry
 	Reload() error
+	LocalSubnet() string
 }
