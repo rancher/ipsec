@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	metadataURLTemplate = "http://%v/2015-12-19"
+	metadataURLTemplate = "http://%v/2016-07-29"
 
 	// DefaultMetadataAddress specifies the default value to use if nothing is specified
 	DefaultMetadataAddress = "169.254.169.250"
