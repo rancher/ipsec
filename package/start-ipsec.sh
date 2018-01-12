@@ -32,15 +32,19 @@ fi
 
 
 mkdir -p /etc/ipsec
-if [ "$TOKEN_PSK" = "true" ]; then
-    curl -s -f http://169.254.169.250/2016-07-29/self/service/token > /etc/ipsec/psk.txt
-    if [ -z /etc/ipsec/psk.txt ]; then
-        echo Failed to download PSK
-        exit 1
-    fi
+if [ "${RANCHER_IPSEC_PSK}" != "" ]; then
+    echo "${RANCHER_IPSEC_PSK}" > /etc/ipsec/psk.txt
 else
-    curl -f -u ${CATTLE_ACCESS_KEY}:${CATTLE_SECRET_KEY} ${CATTLE_URL}/configcontent/psk > /etc/ipsec/psk.txt
-    curl -f -X PUT -d "" -u ${CATTLE_ACCESS_KEY}:${CATTLE_SECRET_KEY} ${CATTLE_URL}/configcontent/psk?version=latest
+    if [ "$TOKEN_PSK" = "true" ]; then
+        curl -s -f http://169.254.169.250/2016-07-29/self/service/token > /etc/ipsec/psk.txt
+        if [ -z /etc/ipsec/psk.txt ]; then
+            echo Failed to download PSK
+            exit 1
+        fi
+    else
+        curl -f -u ${CATTLE_ACCESS_KEY}:${CATTLE_SECRET_KEY} ${CATTLE_URL}/configcontent/psk > /etc/ipsec/psk.txt
+        curl -f -X PUT -d "" -u ${CATTLE_ACCESS_KEY}:${CATTLE_SECRET_KEY} ${CATTLE_URL}/configcontent/psk?version=latest
+    fi
 fi
 
 GATEWAY=$(ip route get 8.8.8.8 | awk '{print $3}')

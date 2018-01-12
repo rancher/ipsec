@@ -529,7 +529,12 @@ func (o *Overlay) addRules(entry store.Entry, existingPolicies map[string]netlin
 	localIP := net.ParseIP(o.db.LocalIPAddress())
 	remoteHostIP := net.ParseIP(entry.HostIPAddress)
 
-	ip, ipNet, err := net.ParseCIDR(entry.IPAddress)
+	_, localSubnet, err := net.ParseCIDR(o.db.LocalSubnet())
+	if err != nil {
+		return err
+	}
+
+	ip, _, err := net.ParseCIDR(entry.IPAddress)
 	if err != nil {
 		return err
 	}
@@ -540,7 +545,7 @@ func (o *Overlay) addRules(entry store.Entry, existingPolicies map[string]netlin
 	}
 
 	outPolicy := netlink.XfrmPolicy{
-		Src:      ipNet,
+		Src:      localSubnet,
 		Dst:      ipDirectNet,
 		Dir:      netlink.XFRM_DIR_OUT,
 		Priority: 10000,
@@ -556,7 +561,7 @@ func (o *Overlay) addRules(entry store.Entry, existingPolicies map[string]netlin
 	}
 	inPolicy := netlink.XfrmPolicy{
 		Src:      ipDirectNet,
-		Dst:      ipNet,
+		Dst:      localSubnet,
 		Dir:      netlink.XFRM_DIR_IN,
 		Priority: 10000,
 		Tmpls: []netlink.XfrmPolicyTmpl{
@@ -571,7 +576,7 @@ func (o *Overlay) addRules(entry store.Entry, existingPolicies map[string]netlin
 	}
 	fwdPolicy := netlink.XfrmPolicy{
 		Src:      ipDirectNet,
-		Dst:      ipNet,
+		Dst:      localSubnet,
 		Dir:      netlink.XFRM_DIR_FWD,
 		Priority: 10000,
 		Tmpls: []netlink.XfrmPolicyTmpl{
