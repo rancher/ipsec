@@ -154,8 +154,7 @@ func appMain(ctx *cli.Context) error {
 	}()
 
 	if err := overlay.Reload(); err != nil {
-		log.Errorf("couldn't reload the overlay: %v", err)
-		return err
+		log.Errorf("couldn't reload the overlay for first time: %v. But not to worry as the next metadata refresh will fix it", err)
 	}
 
 	monitor.Watch(mc)
