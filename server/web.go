@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/leodotcloud/log"
-
 	"github.com/rancher/ipsec/backend"
+	"github.com/rancher/log"
 )
 
 // Server structure is used to the store backend information

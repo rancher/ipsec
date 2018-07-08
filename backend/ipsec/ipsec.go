@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/bronze1man/goStrongswanVici"
-	"github.com/leodotcloud/log"
 	"github.com/rancher/go-rancher-metadata/metadata"
 	"github.com/rancher/ipsec/store"
+	"github.com/rancher/log"
 	"github.com/vishvananda/netlink"
 )
 
