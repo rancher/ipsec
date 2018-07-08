@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	log "github.com/leodotcloud/log"
+	log "github.com/rancher/log"
 )
 
 var (
