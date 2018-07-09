@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"net"
 
-	"github.com/leodotcloud/log"
 	"github.com/mdlayher/arp"
 	"github.com/mdlayher/ethernet"
 	"github.com/rancher/ipsec/store"
+	"github.com/rancher/log"
 )
 
 // ListenAndServe starts ARP proxy server

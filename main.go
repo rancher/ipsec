@@ -5,14 +5,14 @@ import (
 	"os"
 
 	"github.com/codegangsta/cli"
-	"github.com/leodotcloud/log"
-	logserver "github.com/leodotcloud/log/server"
 	"github.com/rancher/go-rancher-metadata/metadata"
 	"github.com/rancher/ipsec/arp"
 	"github.com/rancher/ipsec/backend/ipsec"
 	"github.com/rancher/ipsec/monitor"
 	"github.com/rancher/ipsec/server"
 	"github.com/rancher/ipsec/store"
+	"github.com/rancher/log"
+	logserver "github.com/rancher/log/server"
 )
 
 const (

@@ -9,7 +9,7 @@ import (
 	"path"
 
 	"github.com/bronze1man/goStrongswanVici"
-	"github.com/leodotcloud/log"
+	"github.com/rancher/log"
 )
 
 const (

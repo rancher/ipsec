@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/bronze1man/goStrongswanVici"
-	"github.com/leodotcloud/log"
 	"github.com/rancher/go-rancher-metadata/metadata"
+	"github.com/rancher/log"
 )
 
 // SAsMonitor ...
